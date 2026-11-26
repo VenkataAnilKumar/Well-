@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_mood_label">Well+ Quick Mood Check-In</string>
+    <string name="widget_quick_mood_description">Log your daily mood in 1 tap and view synced steps.</string>
+    <string name="widget_next_dose_label">Well+ Next Medication Dose</string>
+    <string name="widget_next_dose_description">See your next scheduled medication and mark it taken in 1 tap.</string>
+    <string name="widget_emergency_id_label">Well+ Emergency Medical ID</string>
+    <string name="widget_emergency_id_description">Opt-in high-contrast blood type, allergies, and 1-tap emergency dial card.</string>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sanctuary_teal">#FF007AFF</color>
+    <color name="sanctuary_teal_dark">#FF003B80</color>
+    <color name="sanctuary_seafoam">#FFE5F1FF</color>
+    <color name="sanctuary_cream">#FFF2F2F7</color>
+    <color name="sanctuary_linen">#FFE5E5EA</color>
+    <color name="sanctuary_evergreen">#FF000000</color>
+    <color name="sanctuary_charcoal">#FF111114</color>
+    <color name="sanctuary_coral">#FFFF2D55</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

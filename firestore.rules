@@ -1,0 +1,713 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core security primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isStringList(listVal, maxLen) {
+      return listVal is list &&
+             listVal.size() <= maxLen &&
+             (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() <= 500));
+    }
+
+    // Entity validators
+    function isValidHealthProfile(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.displayName is string &&
+             data.displayName.size() <= 80 &&
+             data.age is int &&
+             data.age >= 0 &&
+             data.age <= 130 &&
+             data.biologicalSex is string &&
+             data.biologicalSex in ['UNSPECIFIED', 'FEMALE', 'MALE', 'INTERSEX', 'PREFER_NOT_TO_SAY'] &&
+             data.bloodType is string &&
+             data.bloodType in ['UNKNOWN', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] &&
+             isStringList(data.allergies, 25) &&
+             isStringList(data.medications, 25) &&
+             isStringList(data.conditions, 25) &&
+             isStringList(data.wellnessGoals, 15) &&
+             (!('onboardingCompleted' in data) || data.onboardingCompleted is bool) &&
+             (!('disclaimerAccepted' in data) || data.disclaimerAccepted is bool) &&
+             (!('ageConfirmed18Plus' in data) || data.ageConfirmed18Plus is bool) &&
+             (!('preferredHealthRegion' in data) || (data.preferredHealthRegion is string && data.preferredHealthRegion.size() <= 8)) &&
+             (!('preferredEmergencyCountry' in data) || (data.preferredEmergencyCountry is string && data.preferredEmergencyCountry.size() <= 8)) &&
+             (!('emergencyContactName' in data) || (data.emergencyContactName is string && data.emergencyContactName.size() <= 80)) &&
+             (!('emergencyContactPhone' in data) || (data.emergencyContactPhone is string && data.emergencyContactPhone.size() <= 30)) &&
+             (!('coverageProvider' in data) || (data.coverageProvider is string && data.coverageProvider.size() <= 80)) &&
+             (!('coverageMemberId' in data) || (data.coverageMemberId is string && data.coverageMemberId.size() <= 40)) &&
+             (!('primaryDoctorName' in data) || (data.primaryDoctorName is string && data.primaryDoctorName.size() <= 80)) &&
+             (!('preferredPharmacy' in data) || (data.preferredPharmacy is string && data.preferredPharmacy.size() <= 100)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidConsultation(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.consultationType is string &&
+             data.consultationType in ['SYMPTOM_CHECK', 'PHOTO_ANALYSIS'] &&
+             data.title is string &&
+             data.title.size() >= 1 &&
+             data.title.size() <= 140 &&
+             data.bodyArea is string &&
+             data.bodyArea.size() >= 1 &&
+             data.bodyArea.size() <= 60 &&
+             data.symptomSummary is string &&
+             data.symptomSummary.size() >= 1 &&
+             data.symptomSummary.size() <= 2000 &&
+             data.severity is int &&
+             data.severity >= 1 &&
+             data.severity <= 10 &&
+             data.duration is string &&
+             data.duration.size() >= 1 &&
+             data.duration.size() <= 60 &&
+             isStringList(data.associatedSymptoms, 20) &&
+             data.hadPhotoAttachment is bool &&
+             data.urgencyLevel is string &&
+             data.urgencyLevel in ['SELF_CARE', 'DOCTOR_SOON', 'URGENT', 'EMERGENCY'] &&
+             data.aiSummary is string &&
+             data.aiSummary.size() >= 1 &&
+             data.aiSummary.size() <= 4000 &&
+             isStringList(data.possibleCauses, 12) &&
+             isStringList(data.careSuggestions, 15) &&
+             isStringList(data.redFlags, 15) &&
+             isStringList(data.doctorQuestions, 12) &&
+             (!('followUpStatus' in data) || (data.followUpStatus is string && data.followUpStatus in ['PENDING', 'IMPROVING', 'UNCHANGED', 'WORSENING', 'RESOLVED'])) &&
+             (!('followUpNote' in data) || (data.followUpNote is string && data.followUpNote.size() <= 600)) &&
+             (!('followUpUpdatedAt' in data) || isValidTimestamp(data.followUpUpdatedAt)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidChatMessage(data, userId, consultationId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.consultationId is string &&
+             data.consultationId == consultationId &&
+             data.consultationId.size() <= 128 &&
+             data.role is string &&
+             data.role in ['USER', 'DOCTOR'] &&
+             data.content is string &&
+             data.content.size() >= 1 &&
+             data.content.size() <= 8000 &&
+             data.hadPhotoAttachment is bool &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidDailyCheckIn(data, userId, dateKey) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.dateKey is string &&
+             data.dateKey == dateKey &&
+             data.dateKey.size() >= 8 &&
+             data.dateKey.size() <= 16 &&
+             data.moodLevel is int &&
+             data.moodLevel >= 1 &&
+             data.moodLevel <= 5 &&
+             data.energyLevel is int &&
+             data.energyLevel >= 1 &&
+             data.energyLevel <= 5 &&
+             data.sleepHours is number &&
+             data.sleepHours >= 0 &&
+             data.sleepHours <= 24 &&
+             data.hydrationGlasses is int &&
+             data.hydrationGlasses >= 0 &&
+             data.hydrationGlasses <= 30 &&
+             (!('activityLevel' in data) ||
+               (data.activityLevel is string &&
+                data.activityLevel in ['SEDENTARY', 'LIGHT', 'MODERATE', 'ACTIVE', 'VIGOROUS'])) &&
+             (!('activityMinutes' in data) ||
+               (data.activityMinutes is int &&
+                data.activityMinutes >= 0 &&
+                data.activityMinutes <= 600)) &&
+             data.notes is string &&
+             data.notes.size() <= 600 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCareTask(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.title is string &&
+             data.title.size() >= 1 &&
+             data.title.size() <= 200 &&
+             data.category is string &&
+             data.category in ['AI_SUGGESTION', 'MEDICATION', 'HYDRATION', 'RECOVERY', 'CUSTOM'] &&
+             data.completed is bool &&
+             (!('sourceConsultationId' in data) || (data.sourceConsultationId is string && data.sourceConsultationId.size() >= 1 && data.sourceConsultationId.size() <= 128)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidMedication(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.name is string &&
+             data.name.size() >= 1 &&
+             data.name.size() <= 100 &&
+             data.dosage is string &&
+             data.dosage.size() <= 60 &&
+             data.scheduleSlot is string &&
+             data.scheduleSlot in ['MORNING', 'MIDDAY', 'EVENING', 'BEDTIME', 'AS_NEEDED'] &&
+             data.reminderHour is int &&
+             data.reminderHour >= 0 &&
+             data.reminderHour <= 23 &&
+             data.reminderMinute is int &&
+             data.reminderMinute >= 0 &&
+             data.reminderMinute <= 59 &&
+             data.instructions is string &&
+             data.instructions.size() <= 240 &&
+             data.active is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidMedicationLog(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.dateKey is string &&
+             data.dateKey.size() >= 8 &&
+             data.dateKey.size() <= 16 &&
+             data.medicationId is string &&
+             data.medicationId.size() >= 1 &&
+             data.medicationId.size() <= 128 &&
+             data.medicationName is string &&
+             data.medicationName.size() >= 1 &&
+             data.medicationName.size() <= 100 &&
+             data.status is string &&
+             data.status in ['TAKEN', 'SKIPPED'] &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidVitalReading(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.vitalType is string &&
+             data.vitalType in ['BLOOD_PRESSURE', 'HEART_RATE', 'TEMPERATURE', 'SPO2', 'WEIGHT', 'BLOOD_GLUCOSE'] &&
+             data.primaryValue is number &&
+             data.primaryValue > 0 &&
+             data.primaryValue <= 1000 &&
+             (!('secondaryValue' in data) || (data.secondaryValue is number && data.secondaryValue > 0 && data.secondaryValue <= 500)) &&
+             data.unit is string &&
+             data.unit.size() >= 1 &&
+             data.unit.size() <= 20 &&
+             data.note is string &&
+             data.note.size() <= 300 &&
+             isValidTimestamp(data.recordedAt) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidMentalAssessment(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.assessmentType is string &&
+             data.assessmentType in ['PHQ9', 'GAD7'] &&
+             data.totalScore is int &&
+             data.totalScore >= 0 &&
+             data.totalScore <= 27 &&
+             data.maxScore is int &&
+             data.maxScore in [21, 27] &&
+             data.severityBand is string &&
+             data.severityBand in ['MINIMAL', 'MILD', 'MODERATE', 'MODERATELY_SEVERE', 'SEVERE'] &&
+             data.itemScores is list &&
+             data.itemScores.size() >= 7 &&
+             data.itemScores.size() <= 9 &&
+             data.crisisFlagged is bool &&
+             data.aiReflection is string &&
+             data.aiReflection.size() <= 2000 &&
+             isStringList(data.aiCopingSteps, 8) &&
+             isValidTimestamp(data.recordedAt) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidBodyMeasurement(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.weightKg is number &&
+             data.weightKg >= 10 &&
+             data.weightKg <= 400 &&
+             data.heightCm is number &&
+             data.heightCm >= 0 &&
+             data.heightCm <= 280 &&
+             data.bmi is number &&
+             data.bmi >= 0 &&
+             data.bmi <= 120 &&
+             data.waistCm is number &&
+             data.waistCm >= 0 &&
+             data.waistCm <= 300 &&
+             data.note is string &&
+             data.note.size() <= 300 &&
+             isValidTimestamp(data.recordedAt) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCycleLog(data, userId, dateKey) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.dateKey is string &&
+             data.dateKey == dateKey &&
+             data.dateKey.size() >= 8 &&
+             data.dateKey.size() <= 16 &&
+             data.flowLevel is string &&
+             data.flowLevel in ['NONE', 'SPOTTING', 'LIGHT', 'MEDIUM', 'HEAVY'] &&
+             isStringList(data.symptoms, 12) &&
+             data.moodTag is string &&
+             data.moodTag.size() <= 40 &&
+             data.notes is string &&
+             data.notes.size() <= 400 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAiSafetyReport(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.featureArea is string &&
+             data.featureArea in [
+               'SYMPTOM_TRIAGE', 'FOLLOW_UP_CHAT', 'DRUG_INTERACTION',
+               'MENTAL_REFLECTION', 'HIGHLIGHTS_INSIGHT', 'LONGITUDINAL_SYNTHESIS',
+               'BODY_CYCLE_INSIGHT', 'HEALTH_CONNECT_BRIEF',
+               'LAB_BIOMARKER_SCAN', 'PROACTIVE_REASSESSMENT',
+               'SOAP_PREVISIT_BRIEF', 'CHAT_ACTION_SUGGESTION'
+             ] &&
+             data.reason is string &&
+             data.reason in ['INACCURATE', 'UNSAFE_ADVICE', 'MISSED_URGENCY', 'OFFENSIVE', 'OTHER'] &&
+             data.contentSnippet is string &&
+             data.contentSnippet.size() <= 400 &&
+             data.userNote is string &&
+             data.userNote.size() <= 500 &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidLabBiomarker(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.userId.size() <= 128 &&
+             data.markerName is string &&
+             data.markerName.size() >= 1 &&
+             data.markerName.size() <= 80 &&
+             data.category is string &&
+             data.category in ['METABOLIC', 'LIPIDS', 'THYROID', 'VITAMINS', 'CBC', 'KIDNEY_LIVER', 'OTHER'] &&
+             data.value is number &&
+             data.value >= 0 &&
+             data.value <= 100000 &&
+             data.unit is string &&
+             data.unit.size() >= 1 &&
+             data.unit.size() <= 24 &&
+             data.referenceRangeText is string &&
+             data.referenceRangeText.size() <= 80 &&
+             data.status is string &&
+             data.status in ['OPTIMAL', 'BORDERLINE', 'HIGH', 'LOW'] &&
+             data.panelDateKey is string &&
+             data.panelDateKey.size() >= 8 &&
+             data.panelDateKey.size() <= 16 &&
+             data.labNote is string &&
+             data.labNote.size() <= 400 &&
+             isValidTimestamp(data.recordedAt) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    match /users/{userId} {
+      // 1. Personal Health Profile
+      match /profile/{profileId} {
+        allow get: if isOwner(userId) && isValidId(profileId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(profileId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'displayName', 'age', 'biologicalSex', 'bloodType',
+                           'allergies', 'medications', 'conditions', 'wellnessGoals',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'displayName', 'age', 'biologicalSex', 'bloodType',
+                           'allergies', 'medications', 'conditions', 'wellnessGoals',
+                           'onboardingCompleted', 'disclaimerAccepted',
+                           'ageConfirmed18Plus', 'preferredHealthRegion',
+                           'preferredEmergencyCountry',
+                           'emergencyContactName', 'emergencyContactPhone',
+                           'coverageProvider', 'coverageMemberId',
+                           'primaryDoctorName', 'preferredPharmacy',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidHealthProfile(incoming(), userId);
+        allow update: if isSignedIn() &&
+                         isValidHealthProfile(incoming(), userId) &&
+                         isOwner(userId) &&
+                         isValidId(profileId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'displayName', 'age', 'biologicalSex', 'bloodType',
+                           'allergies', 'medications', 'conditions', 'wellnessGoals',
+                           'onboardingCompleted', 'disclaimerAccepted',
+                           'ageConfirmed18Plus', 'preferredHealthRegion',
+                           'preferredEmergencyCountry',
+                           'emergencyContactName', 'emergencyContactPhone',
+                           'coverageProvider', 'coverageMemberId',
+                           'primaryDoctorName', 'preferredPharmacy',
+                           'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(profileId);
+      }
+
+      // 2. Consultations (Symptom Checks & Photo/Lab Analyses)
+      match /consultations/{consultationId} {
+        allow get: if isOwner(userId) && isValidId(consultationId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(consultationId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'consultationType', 'title', 'bodyArea', 'symptomSummary',
+                           'severity', 'duration', 'associatedSymptoms', 'hadPhotoAttachment',
+                           'urgencyLevel', 'aiSummary', 'possibleCauses', 'careSuggestions',
+                           'redFlags', 'doctorQuestions', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'consultationType', 'title', 'bodyArea', 'symptomSummary',
+                           'severity', 'duration', 'associatedSymptoms', 'hadPhotoAttachment',
+                           'urgencyLevel', 'aiSummary', 'possibleCauses', 'careSuggestions',
+                           'redFlags', 'doctorQuestions', 'followUpStatus', 'followUpNote',
+                           'followUpUpdatedAt', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidConsultation(incoming(), userId);
+        allow update: if isSignedIn() &&
+                         isValidConsultation(incoming(), userId) &&
+                         isOwner(userId) &&
+                         isValidId(consultationId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'followUpStatus', 'followUpNote', 'followUpUpdatedAt', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(consultationId);
+
+        // 3. Consultation Follow-Up Chat Messages
+        match /messages/{messageId} {
+          allow get: if isOwner(userId) && isValidId(consultationId) && isValidId(messageId);
+          allow list: if isOwner(userId) && isValidId(consultationId);
+          allow create: if isOwner(userId) &&
+                           isValidId(consultationId) &&
+                           isValidId(messageId) &&
+                           incoming().keys().hasAll([
+                             'userId', 'consultationId', 'role', 'content',
+                             'hadPhotoAttachment', 'createdAt'
+                           ]) &&
+                           incoming().keys().hasOnly([
+                             'userId', 'consultationId', 'role', 'content',
+                             'hadPhotoAttachment', 'createdAt'
+                           ]) &&
+                           isValidChatMessage(incoming(), userId, consultationId) &&
+                           exists(/databases/$(database)/documents/users/$(userId)/consultations/$(consultationId));
+          allow update: if false;
+          allow delete: if isOwner(userId) && isValidId(consultationId) && isValidId(messageId);
+        }
+      }
+
+      // 4. Daily Wellness Check-Ins
+      match /checkIns/{dateKey} {
+        allow get: if isOwner(userId) && isValidId(dateKey);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(dateKey) &&
+                         incoming().keys().hasAll([
+                           'userId', 'dateKey', 'moodLevel', 'energyLevel',
+                           'sleepHours', 'hydrationGlasses', 'notes', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'dateKey', 'moodLevel', 'energyLevel',
+                           'sleepHours', 'hydrationGlasses', 'activityLevel', 'activityMinutes',
+                           'notes', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidDailyCheckIn(incoming(), userId, dateKey);
+        allow update: if isSignedIn() &&
+                         isValidDailyCheckIn(incoming(), userId, dateKey) &&
+                         isOwner(userId) &&
+                         isValidId(dateKey) &&
+                         incoming().userId == existing().userId &&
+                         incoming().dateKey == existing().dateKey &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'moodLevel', 'energyLevel', 'sleepHours', 'hydrationGlasses',
+                           'activityLevel', 'activityMinutes', 'notes', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(dateKey);
+      }
+
+      // 5. Personal Care Checklist Tasks
+      match /careTasks/{taskId} {
+        allow get: if isOwner(userId) && isValidId(taskId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'category', 'completed', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'category', 'completed',
+                           'sourceConsultationId', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidCareTask(incoming(), userId);
+        allow update: if isSignedIn() &&
+                         isValidCareTask(incoming(), userId) &&
+                         isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'category', 'completed', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      // 6. Tracked Medications & Supplements
+      match /medications/{medicationId} {
+        allow get: if isOwner(userId) && isValidId(medicationId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(medicationId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'dosage', 'scheduleSlot',
+                           'reminderHour', 'reminderMinute', 'instructions', 'active',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'dosage', 'scheduleSlot',
+                           'reminderHour', 'reminderMinute', 'instructions', 'active',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidMedication(incoming(), userId);
+        allow update: if isSignedIn() &&
+                         isValidMedication(incoming(), userId) &&
+                         isOwner(userId) &&
+                         isValidId(medicationId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'dosage', 'scheduleSlot', 'reminderHour',
+                           'reminderMinute', 'instructions', 'active', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(medicationId);
+      }
+
+      // 7. Daily Medication Adherence Logs
+      match /medicationLogs/{logId} {
+        allow get: if isOwner(userId) && isValidId(logId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(logId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'dateKey', 'medicationId', 'medicationName',
+                           'status', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'dateKey', 'medicationId', 'medicationName',
+                           'status', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidMedicationLog(incoming(), userId);
+        allow update: if isSignedIn() &&
+                         isValidMedicationLog(incoming(), userId) &&
+                         isOwner(userId) &&
+                         isValidId(logId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().dateKey == existing().dateKey &&
+                         incoming().medicationId == existing().medicationId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'medicationName', 'status', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(logId);
+      }
+
+      // 8. Timestamped Vitals & Biometrics
+      match /vitals/{vitalId} {
+        allow get: if isOwner(userId) && isValidId(vitalId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(vitalId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'vitalType', 'primaryValue', 'unit', 'note',
+                           'recordedAt', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'vitalType', 'primaryValue', 'secondaryValue',
+                           'unit', 'note', 'recordedAt', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidVitalReading(incoming(), userId);
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(vitalId);
+      }
+
+      // 9. Mental Wellbeing Assessments (PHQ-9 & GAD-7)
+      match /mentalAssessments/{assessmentId} {
+        allow get: if isOwner(userId) && isValidId(assessmentId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(assessmentId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'assessmentType', 'totalScore', 'maxScore',
+                           'severityBand', 'itemScores', 'crisisFlagged',
+                           'aiReflection', 'aiCopingSteps',
+                           'recordedAt', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'assessmentType', 'totalScore', 'maxScore',
+                           'severityBand', 'itemScores', 'crisisFlagged',
+                           'aiReflection', 'aiCopingSteps',
+                           'recordedAt', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidMentalAssessment(incoming(), userId);
+        allow update: if isSignedIn() &&
+                         isValidMentalAssessment(incoming(), userId) &&
+                         isOwner(userId) &&
+                         isValidId(assessmentId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().assessmentType == existing().assessmentType &&
+                         incoming().totalScore == existing().totalScore &&
+                         incoming().maxScore == existing().maxScore &&
+                         incoming().severityBand == existing().severityBand &&
+                         incoming().recordedAt == existing().recordedAt &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'aiReflection', 'aiCopingSteps', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(assessmentId);
+      }
+
+      // 10. Body Measurements (Weight, Height, BMI, Waist)
+      match /bodyMeasurements/{measurementId} {
+        allow get: if isOwner(userId) && isValidId(measurementId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(measurementId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'weightKg', 'heightCm', 'bmi', 'waistCm',
+                           'note', 'recordedAt', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'weightKg', 'heightCm', 'bmi', 'waistCm',
+                           'note', 'recordedAt', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidBodyMeasurement(incoming(), userId);
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(measurementId);
+      }
+
+      // 11. Optional Cycle Tracking Logs
+      match /cycleLogs/{dateKey} {
+        allow get: if isOwner(userId) && isValidId(dateKey);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(dateKey) &&
+                         incoming().keys().hasAll([
+                           'userId', 'dateKey', 'flowLevel', 'symptoms',
+                           'moodTag', 'notes', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'dateKey', 'flowLevel', 'symptoms',
+                           'moodTag', 'notes', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidCycleLog(incoming(), userId, dateKey);
+        allow update: if isSignedIn() &&
+                         isValidCycleLog(incoming(), userId, dateKey) &&
+                         isOwner(userId) &&
+                         isValidId(dateKey) &&
+                         incoming().userId == existing().userId &&
+                         incoming().dateKey == existing().dateKey &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'flowLevel', 'symptoms', 'moodTag', 'notes', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(dateKey);
+      }
+
+      // 12. Generative AI Safety & Accuracy Reports (Google Play AI Policy Compliance)
+      match /aiSafetyReports/{reportId} {
+        allow get: if isOwner(userId) && isValidId(reportId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(reportId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'featureArea', 'reason',
+                           'contentSnippet', 'userNote', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'featureArea', 'reason',
+                           'contentSnippet', 'userNote', 'createdAt'
+                         ]) &&
+                         isValidAiSafetyReport(incoming(), userId);
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(reportId);
+      }
+
+      // 13. Structured Lab Biomarkers (HbA1c, LDL, Vitamin D, TSH, etc.)
+      match /labBiomarkers/{biomarkerId} {
+        allow get: if isOwner(userId) && isValidId(biomarkerId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(biomarkerId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'markerName', 'category', 'value', 'unit',
+                           'referenceRangeText', 'status', 'panelDateKey', 'labNote',
+                           'recordedAt', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'markerName', 'category', 'value', 'unit',
+                           'referenceRangeText', 'status', 'panelDateKey', 'labNote',
+                           'recordedAt', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidLabBiomarker(incoming(), userId);
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(biomarkerId);
+      }
+    }
+  }
+}

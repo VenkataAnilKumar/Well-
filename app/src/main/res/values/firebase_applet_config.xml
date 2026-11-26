@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<resources>
+    <string name="firestore_database_id" translatable="false">ai-studio-android-sanacare-a0e450e8-3c78-41fd-b91f-d52b065d4e2a</string>
+    <string name="recaptcha_site_key" translatable="false">6Lf9LykuAAAAALvrdeRgyFTIqWszcSv65CE43Zrb</string>
+</resources>

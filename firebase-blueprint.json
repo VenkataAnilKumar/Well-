@@ -1,0 +1,369 @@
+{
+  "entities": {
+    "HealthProfile": {
+      "title": "HealthProfile",
+      "description": "User's personal health profile used to personalize AI Doctor symptom analyses, safety onboarding, and emergency escalation.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID owning this profile." },
+        "displayName": { "type": "string", "description": "Preferred display name." },
+        "age": { "type": "integer", "description": "User age in years (0 if unspecified)." },
+        "biologicalSex": {
+          "type": "string",
+          "enum": ["UNSPECIFIED", "FEMALE", "MALE", "INTERSEX", "PREFER_NOT_TO_SAY"],
+          "description": "Optional biological sex context for clinical guidance."
+        },
+        "bloodType": {
+          "type": "string",
+          "enum": ["UNKNOWN", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+          "description": "Optional blood type."
+        },
+        "allergies": { "type": "array", "description": "List of known allergies." },
+        "medications": { "type": "array", "description": "List of current medications." },
+        "conditions": { "type": "array", "description": "List of ongoing health conditions." },
+        "wellnessGoals": { "type": "array", "description": "Personal daily wellness focus areas." },
+        "onboardingCompleted": { "type": "boolean", "description": "True once the user completes first-run safety onboarding." },
+        "disclaimerAccepted": { "type": "boolean", "description": "True once the user explicitly accepts the non-diagnostic medical disclaimer." },
+        "ageConfirmed18Plus": { "type": "boolean", "description": "True once the user explicitly confirms they are 18+ years old during onboarding." },
+        "preferredHealthRegion": { "type": "string", "description": "Preferred clinical health region mode ('US' or 'CA') controlling units, 811 nurse line, Care Team labels, and AI guidance." },
+        "preferredEmergencyCountry": { "type": "string", "description": "Optional ISO country code override for localized emergency/crisis dialing (empty = auto-detect)." },
+        "emergencyContactName": { "type": "string", "description": "Optional emergency contact person name." },
+        "emergencyContactPhone": { "type": "string", "description": "Optional emergency contact phone number." },
+        "coverageProvider": { "type": "string", "description": "Optional US Health Insurance Plan or Canadian Provincial Health Card (e.g., OHIP, MSP, AHS)." },
+        "coverageMemberId": { "type": "string", "description": "Optional insurance member ID or provincial health card number stored privately in the user vault." },
+        "primaryDoctorName": { "type": "string", "description": "Optional primary care doctor or family doctor / clinic name." },
+        "preferredPharmacy": { "type": "string", "description": "Optional preferred pharmacy name and location." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when created (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when last updated (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "displayName", "age", "biologicalSex", "bloodType", "allergies", "medications", "conditions", "wellnessGoals", "createdAt", "updatedAt"]
+    },
+    "Consultation": {
+      "title": "Consultation",
+      "description": "A structured AI symptom check or photo/lab analysis saved in the user's consultation history, including symptom recovery follow-up status.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID owning this consultation." },
+        "consultationType": {
+          "type": "string",
+          "enum": ["SYMPTOM_CHECK", "PHOTO_ANALYSIS"],
+          "description": "Whether this consultation started from guided symptom intake or photo/lab analysis."
+        },
+        "title": { "type": "string", "description": "Concise clinical title generated for the consultation." },
+        "bodyArea": { "type": "string", "description": "Primary body area or Lab Report category." },
+        "symptomSummary": { "type": "string", "description": "User-reported symptoms or context." },
+        "severity": { "type": "integer", "description": "Self-reported severity from 1 to 10." },
+        "duration": { "type": "string", "description": "Duration of symptoms." },
+        "associatedSymptoms": { "type": "array", "description": "Selected associated symptom tags." },
+        "hadPhotoAttachment": { "type": "boolean", "description": "True if an ephemeral photo was analyzed during intake." },
+        "urgencyLevel": {
+          "type": "string",
+          "enum": ["SELF_CARE", "DOCTOR_SOON", "URGENT", "EMERGENCY"],
+          "description": "Structured triage urgency level."
+        },
+        "aiSummary": { "type": "string", "description": "Personalized clinical overview from Gemini." },
+        "possibleCauses": { "type": "array", "description": "Potential educational causes to discuss with a clinician." },
+        "careSuggestions": { "type": "array", "description": "Actionable self-care and recovery suggestions." },
+        "redFlags": { "type": "array", "description": "Warning signs requiring immediate medical attention." },
+        "doctorQuestions": { "type": "array", "description": "Suggested questions to ask a healthcare provider." },
+        "followUpStatus": {
+          "type": "string",
+          "enum": ["PENDING", "IMPROVING", "UNCHANGED", "WORSENING", "RESOLVED"],
+          "description": "Optional symptom outcome progression status."
+        },
+        "followUpNote": { "type": "string", "description": "Optional recovery progress note." },
+        "followUpUpdatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when follow-up outcome was updated." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when created (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when last updated (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "consultationType", "title", "bodyArea", "symptomSummary", "severity", "duration", "associatedSymptoms", "hadPhotoAttachment", "urgencyLevel", "aiSummary", "possibleCauses", "careSuggestions", "redFlags", "doctorQuestions", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Follow-up message in an AI Doctor consultation thread.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID." },
+        "consultationId": { "type": "string", "description": "Parent consultation document ID." },
+        "role": { "type": "string", "enum": ["USER", "DOCTOR"], "description": "Sender role." },
+        "content": { "type": "string", "description": "Message text." },
+        "hadPhotoAttachment": { "type": "boolean", "description": "True if a photo was attached ephemerally to this message." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when sent (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "consultationId", "role", "content", "hadPhotoAttachment", "createdAt"]
+    },
+    "DailyCheckIn": {
+      "title": "DailyCheckIn",
+      "description": "Daily wellness check-in recording mood, energy, sleep, physical activity level, active minutes, hydration, and brief notes.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID." },
+        "dateKey": { "type": "string", "description": "ISO local date key yyyy-MM-dd." },
+        "moodLevel": { "type": "integer", "description": "Comfort/mood rating 1-5." },
+        "energyLevel": { "type": "integer", "description": "Energy rating 1-5." },
+        "sleepHours": { "type": "number", "description": "Hours of sleep (0-24)." },
+        "hydrationGlasses": { "type": "integer", "description": "Glasses of water consumed (0-30)." },
+        "activityLevel": {
+          "type": "string",
+          "enum": ["SEDENTARY", "LIGHT", "MODERATE", "ACTIVE", "VIGOROUS"],
+          "description": "Daily physical activity intensity level."
+        },
+        "activityMinutes": { "type": "integer", "description": "Active physical movement minutes logged (0-600)." },
+        "notes": { "type": "string", "description": "Optional brief wellness note." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when created (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when last updated (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "dateKey", "moodLevel", "energyLevel", "sleepHours", "hydrationGlasses", "notes", "createdAt", "updatedAt"]
+    },
+    "CareTask": {
+      "title": "CareTask",
+      "description": "Interactive personal care checklist item (custom or added from AI Doctor suggestions).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID." },
+        "title": { "type": "string", "description": "Actionable care task label." },
+        "category": {
+          "type": "string",
+          "enum": ["AI_SUGGESTION", "MEDICATION", "HYDRATION", "RECOVERY", "CUSTOM"],
+          "description": "Task category."
+        },
+        "completed": { "type": "boolean", "description": "Completion state." },
+        "sourceConsultationId": { "type": "string", "description": "Optional parent consultation ID if created from an AI suggestion." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when created (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when last updated (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "title", "category", "completed", "createdAt", "updatedAt"]
+    },
+    "MedicationItem": {
+      "title": "MedicationItem",
+      "description": "Tracked medication or supplement with dosage, schedule slot, reminder time, and active state.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID." },
+        "name": { "type": "string", "description": "Medication or supplement name." },
+        "dosage": { "type": "string", "description": "Dosage strength (e.g., 10 mg, 1 capsule)." },
+        "scheduleSlot": {
+          "type": "string",
+          "enum": ["MORNING", "MIDDAY", "EVENING", "BEDTIME", "AS_NEEDED"],
+          "description": "Scheduled daily time slot."
+        },
+        "reminderHour": { "type": "integer", "description": "Preferred reminder hour (0-23)." },
+        "reminderMinute": { "type": "integer", "description": "Preferred reminder minute (0-59)." },
+        "instructions": { "type": "string", "description": "Optional instructions such as 'Take with food'." },
+        "active": { "type": "boolean", "description": "Whether this medication is currently active." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when last updated." }
+      },
+      "required": ["userId", "name", "dosage", "scheduleSlot", "reminderHour", "reminderMinute", "instructions", "active", "createdAt", "updatedAt"]
+    },
+    "MedicationLog": {
+      "title": "MedicationLog",
+      "description": "Daily medication adherence entry keyed by dateKey_medicationId.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID." },
+        "dateKey": { "type": "string", "description": "ISO local date key yyyy-MM-dd." },
+        "medicationId": { "type": "string", "description": "Referenced MedicationItem ID." },
+        "medicationName": { "type": "string", "description": "Denormalized medication name for history." },
+        "status": {
+          "type": "string",
+          "enum": ["TAKEN", "SKIPPED"],
+          "description": "Dose adherence status."
+        },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when last updated." }
+      },
+      "required": ["userId", "dateKey", "medicationId", "medicationName", "status", "createdAt", "updatedAt"]
+    },
+    "VitalReading": {
+      "title": "VitalReading",
+      "description": "Timestamped biometric or vital sign measurement with optional diastolic value.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID." },
+        "vitalType": {
+          "type": "string",
+          "enum": ["BLOOD_PRESSURE", "HEART_RATE", "TEMPERATURE", "SPO2", "WEIGHT", "BLOOD_GLUCOSE"],
+          "description": "Type of vital sign recorded."
+        },
+        "primaryValue": { "type": "number", "description": "Primary measurement value (systolic for BP)." },
+        "secondaryValue": { "type": "number", "description": "Optional secondary measurement value (diastolic for BP)." },
+        "unit": { "type": "string", "description": "Measurement unit (mmHg, bpm, °F, %, lbs, mg/dL)." },
+        "note": { "type": "string", "description": "Optional measurement context note." },
+        "recordedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the vital was measured." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when last updated." }
+      },
+      "required": ["userId", "vitalType", "primaryValue", "unit", "note", "recordedAt", "createdAt", "updatedAt"]
+    },
+    "MentalAssessment": {
+      "title": "MentalAssessment",
+      "description": "Standardized PHQ-9 depression or GAD-7 anxiety wellbeing screening with optional Gemini coping reflection.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID." },
+        "assessmentType": {
+          "type": "string",
+          "enum": ["PHQ9", "GAD7"],
+          "description": "Standardized clinical screening instrument."
+        },
+        "totalScore": { "type": "integer", "description": "Summed screening score (0-27 for PHQ-9, 0-21 for GAD-7)." },
+        "maxScore": { "type": "integer", "description": "Maximum possible score (27 for PHQ-9, 21 for GAD-7)." },
+        "severityBand": {
+          "type": "string",
+          "enum": ["MINIMAL", "MILD", "MODERATE", "MODERATELY_SEVERE", "SEVERE"],
+          "description": "Standardized score interpretation band."
+        },
+        "itemScores": { "type": "array", "description": "Individual question scores (0-3) for each item." },
+        "crisisFlagged": { "type": "boolean", "description": "True if elevated self-harm item or severe threshold was reached." },
+        "aiReflection": { "type": "string", "description": "Empathetic non-diagnostic AI reflection summary." },
+        "aiCopingSteps": { "type": "array", "description": "Gentle evidence-based coping actions suggested by AI." },
+        "recordedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when assessment was completed." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when last updated." }
+      },
+      "required": ["userId", "assessmentType", "totalScore", "maxScore", "severityBand", "itemScores", "crisisFlagged", "aiReflection", "aiCopingSteps", "recordedAt", "createdAt", "updatedAt"]
+    },
+    "BodyMeasurement": {
+      "title": "BodyMeasurement",
+      "description": "Timestamped body measurement entry storing canonical weight (kg), optional height (cm), auto-computed BMI, and optional waist circumference (cm).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID." },
+        "weightKg": { "type": "number", "description": "Body weight in kilograms (10-400)." },
+        "heightCm": { "type": "number", "description": "Height in centimeters (0 if omitted, otherwise 50-260)." },
+        "bmi": { "type": "number", "description": "Auto-calculated Body Mass Index (0 if height omitted)." },
+        "waistCm": { "type": "number", "description": "Optional waist circumference in centimeters (0 if omitted)." },
+        "note": { "type": "string", "description": "Optional measurement context note." },
+        "recordedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when logged." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when last updated." }
+      },
+      "required": ["userId", "weightKg", "heightCm", "bmi", "waistCm", "note", "recordedAt", "createdAt", "updatedAt"]
+    },
+    "CycleLog": {
+      "title": "CycleLog",
+      "description": "Optional daily menstrual cycle tracking entry keyed by yyyy-MM-dd.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID." },
+        "dateKey": { "type": "string", "description": "ISO local date key yyyy-MM-dd." },
+        "flowLevel": {
+          "type": "string",
+          "enum": ["NONE", "SPOTTING", "LIGHT", "MEDIUM", "HEAVY"],
+          "description": "Menstrual flow intensity for the day."
+        },
+        "symptoms": { "type": "array", "description": "Selected cycle symptoms for the day." },
+        "moodTag": { "type": "string", "description": "Optional mood descriptor for the day." },
+        "notes": { "type": "string", "description": "Optional private cycle note." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when last updated." }
+      },
+      "required": ["userId", "dateKey", "flowLevel", "symptoms", "moodTag", "notes", "createdAt", "updatedAt"]
+    },
+    "AiSafetyReport": {
+      "title": "AiSafetyReport",
+      "description": "User-submitted Google Play Generative AI content safety/accuracy flag for review.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID submitting the report." },
+        "featureArea": {
+          "type": "string",
+          "enum": ["SYMPTOM_TRIAGE", "FOLLOW_UP_CHAT", "DRUG_INTERACTION", "MENTAL_REFLECTION", "HIGHLIGHTS_INSIGHT", "LONGITUDINAL_SYNTHESIS", "BODY_CYCLE_INSIGHT", "HEALTH_CONNECT_BRIEF", "LAB_BIOMARKER_SCAN", "PROACTIVE_REASSESSMENT", "SOAP_PREVISIT_BRIEF", "CHAT_ACTION_SUGGESTION"],
+          "description": "AI surface where the flagged content appeared."
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["INACCURATE", "UNSAFE_ADVICE", "MISSED_URGENCY", "OFFENSIVE", "OTHER"],
+          "description": "Structured safety report category."
+        },
+        "contentSnippet": { "type": "string", "description": "Short excerpt of the flagged AI text (max 400 chars)." },
+        "userNote": { "type": "string", "description": "Optional user explanation (max 500 chars)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when submitted." }
+      },
+      "required": ["userId", "featureArea", "reason", "contentSnippet", "userNote", "createdAt"]
+    },
+    "LabBiomarker": {
+      "title": "LabBiomarker",
+      "description": "Structured clinical lab biomarker extracted from a lab report photo or entered manually (e.g., HbA1c, LDL, Vitamin D, TSH).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID owning this biomarker record." },
+        "markerName": { "type": "string", "description": "Biomarker name (e.g., HbA1c, LDL Cholesterol, Vitamin D, TSH)." },
+        "category": {
+          "type": "string",
+          "enum": ["METABOLIC", "LIPIDS", "THYROID", "VITAMINS", "CBC", "KIDNEY_LIVER", "OTHER"],
+          "description": "Clinical lab panel category."
+        },
+        "value": { "type": "number", "description": "Numeric biomarker value." },
+        "unit": { "type": "string", "description": "Measurement unit (e.g., %, mg/dL, mmol/L, ng/mL, mIU/L)." },
+        "referenceRangeText": { "type": "string", "description": "Lab reference range string (e.g., 4.0 - 5.6 %)." },
+        "status": {
+          "type": "string",
+          "enum": ["OPTIMAL", "BORDERLINE", "HIGH", "LOW"],
+          "description": "Flagged status relative to lab reference range."
+        },
+        "panelDateKey": { "type": "string", "description": "ISO date key yyyy-MM-dd of the lab panel." },
+        "labNote": { "type": "string", "description": "Plain-language educational note about this marker." },
+        "recordedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when saved." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when last updated." }
+      },
+      "required": ["userId", "markerName", "category", "value", "unit", "referenceRangeText", "status", "panelDateKey", "labNote", "recordedAt", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/profile/{profileId}": {
+      "schema": { "$ref": "#/entities/HealthProfile" },
+      "description": "User-isolated personal health profile document (profileId = 'main')."
+    },
+    "/users/{userId}/consultations/{consultationId}": {
+      "schema": { "$ref": "#/entities/Consultation" },
+      "description": "User-isolated AI symptom checks and photo/lab analysis records."
+    },
+    "/users/{userId}/consultations/{consultationId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "User-isolated follow-up conversation messages under a consultation."
+    },
+    "/users/{userId}/checkIns/{dateKey}": {
+      "schema": { "$ref": "#/entities/DailyCheckIn" },
+      "description": "User-isolated daily wellness check-ins keyed by yyyy-MM-dd."
+    },
+    "/users/{userId}/careTasks/{taskId}": {
+      "schema": { "$ref": "#/entities/CareTask" },
+      "description": "User-isolated care checklist items."
+    },
+    "/users/{userId}/medications/{medicationId}": {
+      "schema": { "$ref": "#/entities/MedicationItem" },
+      "description": "User-isolated tracked medications and supplements."
+    },
+    "/users/{userId}/medicationLogs/{logId}": {
+      "schema": { "$ref": "#/entities/MedicationLog" },
+      "description": "User-isolated daily medication adherence logs."
+    },
+    "/users/{userId}/vitals/{vitalId}": {
+      "schema": { "$ref": "#/entities/VitalReading" },
+      "description": "User-isolated timestamped vital sign readings."
+    },
+    "/users/{userId}/mentalAssessments/{assessmentId}": {
+      "schema": { "$ref": "#/entities/MentalAssessment" },
+      "description": "User-isolated PHQ-9 and GAD-7 mental wellbeing screening assessments."
+    },
+    "/users/{userId}/bodyMeasurements/{measurementId}": {
+      "schema": { "$ref": "#/entities/BodyMeasurement" },
+      "description": "User-isolated body measurements (weight, height, BMI, waist)."
+    },
+    "/users/{userId}/cycleLogs/{dateKey}": {
+      "schema": { "$ref": "#/entities/CycleLog" },
+      "description": "User-isolated optional daily cycle tracking logs keyed by yyyy-MM-dd."
+    },
+    "/users/{userId}/aiSafetyReports/{reportId}": {
+      "schema": { "$ref": "#/entities/AiSafetyReport" },
+      "description": "User-isolated Generative AI safety and accuracy flags submitted for compliance review."
+    },
+    "/users/{userId}/labBiomarkers/{biomarkerId}": {
+      "schema": { "$ref": "#/entities/LabBiomarker" },
+      "description": "User-isolated structured clinical lab biomarker measurements extracted from lab reports or entered manually."
+    }
+  }
+}

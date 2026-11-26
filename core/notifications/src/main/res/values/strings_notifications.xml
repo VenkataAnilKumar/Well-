@@ -1,0 +1,4 @@
+<resources>
+    <string name="notif_action_mark_taken">Mark Taken</string>
+    <string name="notif_action_snooze_30m">Snooze 30m</string>
+</resources>

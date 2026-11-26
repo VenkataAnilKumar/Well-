@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Serene botanical wellness leaf -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M19.2,4.8C13.2,4.8 7.5,7.2 6.0,13.2C5.4,15.6 6.4,17.8 8.6,18.4C14.6,19.9 19.2,14.2 19.2,4.8Z"
+        android:strokeWidth="1.9"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- Organic center vein & stem -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M4.8,19.2C7.4,16.4 10.6,13.2 14.8,9.8"
+        android:strokeWidth="1.9"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

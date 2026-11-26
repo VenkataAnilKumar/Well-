@@ -1,0 +1,6 @@
+{
+  "name": "Well+",
+  "description": "AI Doctor and personal health sanctuary with guided symptom checks, photo and lab analysis, daily wellness check-ins, and cloud sync.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
